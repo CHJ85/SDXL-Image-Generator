@@ -18,3 +18,6 @@ Refine Style: Depending on the specific use case:
     base_image_refiner: Suitable when refining based on a base image, useful in scenarios where you need to refine the generated output further.
 High Noise Fraction: 0.8 is a balanced setting for adding noise, which can sometimes enhance the realism or diversity of generated images without overwhelming the output with noise artifacts.
 Refine Steps: Defaults to 50, aligning with the number of inference steps unless specified otherwise. This parameter controls how many refining steps are applied, impacting the final quality and detail in the generated images.
+
+#Online Demo
+https://websim.ai/api/render_html/c/Ca4Fz1hmIimG6VRhL
