@@ -1,0 +1,80 @@
+#!/bin/bash
+
+# Function to display a prompt for user input using yad
+get_user_inputs() {
+    yad_output=$(yad --form --title="SDXL Image Generator" \
+        --width=800 \
+        --field="Prompt:TXT" "An astronaut riding a rainbow unicorn" \
+        --field="Negative Prompt:TXT" "" \
+        --field="Image File (for img2img or inpaint mode):FL" "" \
+        --field="Mask File (for inpaint mode. Black areas will be preserved, white areas will be inpainted):FL" "" \
+        --field="Width:NUM" "1024" \
+        --field="Height:NUM" "1024" \
+        --field="Number of images:NUM" "1..4" \
+        --field="Scheduler:CB" "DDIM!DPMSolver!MultistepHeun!DiscreteKarras!DPMK_EULER!ANCESTRAL!K_EULER!PNDM" \
+        --field="Number of Inference Steps:NUM!1..500" "50" \
+        --field="Guidance Scale (for classifier-free guidance):NUM!1..50" "7.5" \
+        --field="Prompt Strength (1.0 corresponds to full destruction of information):NUM!0..1" "0.8" \
+        --field="Seed (Leave blank to randomize the seed):NUM" "" \
+        --field="Refine Style:CB" "no_refiner!expert_ensemble_refiner!base_image_refiner" \
+        --field="High Noise Fraction (the fraction of noise to use):NUM!0..1" "0.8" \
+        --field="Refine Steps (the number of steps to refine, defaults to num_inference_steps):NUM" "1..500" \
+        --button="Cancel:1" --button="OK:0")
+    
+    IFS="|" read -r prompt negative_prompt image_file mask_file width height num_outputs scheduler num_inference_steps guidance_scale prompt_strength seed refine high_noise_frac refine_steps apply_watermark <<< "$yad_output"
+}
+
+# Function to generate the AI image and get the URLs
+generate_image() {
+    local payload=$(jq -n --arg prompt "$prompt" \
+                          --arg negative_prompt "$negative_prompt" \
+                          --arg image_file "$image_file" \
+                          --arg mask_file "$mask_file" \
+                          --arg width "$width" \
+                          --arg height "$height" \
+                          --arg num_outputs "$num_outputs" \
+                          --arg scheduler "$scheduler" \
+                          --arg num_inference_steps "$num_inference_steps" \
+                          --arg guidance_scale "$guidance_scale" \
+                          --arg prompt_strength "$prompt_strength" \
+                          --arg seed "$seed" \
+                          --arg refine "$refine" \
+                          --arg high_noise_frac "$high_noise_frac" \
+                          --arg refine_steps "$refine_steps" \
+                          --arg apply_watermark "$apply_watermark" \
+                          '{
+                              input: {
+                                  prompt: $prompt,
+                                  negative_prompt: $negative_prompt,
+                                  image_file: $image_file,
+                                  mask_file: $mask_file,
+                                  width: ($width | tonumber),
+                                  height: ($height | tonumber),
+                                  num_outputs: ($num_outputs | tonumber),
+                                  scheduler: $scheduler,
+                                  num_inference_steps: ($num_inference_steps | tonumber),
+                                  guidance_scale: ($guidance_scale | tonumber),
+                                  prompt_strength: ($prompt_strength | tonumber),
+                                  seed: ($seed | if . == "" then null else tonumber end),
+                                  refine: $refine,
+                                  high_noise_frac: ($high_noise_frac | tonumber),
+                                  refine_steps: ($refine_steps | if . == "" then null else tonumber end),
+                                  apply_watermark: ($apply_watermark == "TRUE")
+                              }
+                          }')
+    
+    # Generate image URLs
+    image_urls=$(curl -s -X POST "https://api.deepinfra.com/v1/inference/stability-ai/sdxl" -d "$payload" | grep -o '"https:\/\/results.deepinfra.com\/[^\"]*"')
+    image_urls=$(echo $image_urls | sed 's/"//g') # Remove the quotes from the URLs
+    echo "Image URLs: $image_urls"
+    
+    # Open URLs in the default web browser
+    for url in $image_urls; do
+        xdg-open "$url"
+    done
+}
+
+# Main script execution
+get_user_inputs
+generate_image
+exit 0  # Close the script after finishing execution
